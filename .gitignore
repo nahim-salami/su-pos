@@ -1,0 +1,29 @@
+# Ce dépôt contient uniquement la documentation publique
+# et sert de point de distribution des releases (binaires).
+# Le code source du Logiciel n'est pas publié ici.
+
+# Fichiers OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Éditeurs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Binaires (ils sont distribués via les Releases GitHub, pas commités)
+*.exe
+*.apk
+*.dmg
+*.deb
+*.AppImage
+*.ipa
+*.zip
+*.tar.gz
+
+# Archives temporaires
+tmp/
+temp/

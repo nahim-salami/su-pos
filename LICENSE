@@ -1,0 +1,170 @@
+Su POS — Licence d'utilisation
+================================
+
+Copyright (c) 2026 Ahime SARL — Cotonou, Bénin.
+Tous droits réservés.
+
+
+PRÉAMBULE
+---------
+
+Le logiciel « Su POS » (ci-après « le Logiciel ») est édité, distribué et
+maintenu par Ahime SARL, société de droit béninois ayant son siège
+social à Cotonou (ci-après « Ahime »).
+
+Le présent dépôt GitHub a pour seul objet la mise à disposition publique
+des binaires officiels du Logiciel (fichiers .exe, .apk, etc.) ainsi que
+de la documentation utilisateur associée. Le code source du Logiciel
+n'est ni publié dans ce dépôt, ni couvert par la présente licence.
+
+L'usage des binaires distribués est régi par les conditions ci-dessous,
+sauf accord particulier écrit entre Ahime et l'utilisateur.
+
+
+1. DROITS ACCORDÉS
+------------------
+
+Sous réserve du respect des conditions de la présente licence et d'un
+abonnement Su POS valide souscrit auprès d'Ahime (ou d'un partenaire
+autorisé), Ahime accorde à l'utilisateur final un droit non exclusif,
+non cessible et révocable de :
+
+   a) télécharger les binaires du Logiciel depuis ce dépôt ;
+   b) installer le Logiciel sur les appareils nécessaires à son
+      activité professionnelle ;
+   c) utiliser le Logiciel pour les besoins internes de son entreprise
+      dans le cadre des limites de son abonnement (nombre de boutiques,
+      d'utilisateurs, de produits, etc.) ;
+   d) effectuer une copie de sauvegarde des binaires installés.
+
+
+2. RESTRICTIONS
+---------------
+
+L'utilisateur ne peut, sauf autorisation écrite préalable d'Ahime :
+
+   a) revendre, sous-licencier, louer, prêter ou distribuer le Logiciel
+      à un tiers ;
+   b) modifier, adapter, traduire ou créer des œuvres dérivées à
+      partir du Logiciel ;
+   c) procéder à de l'ingénierie inverse, désassembler, décompiler ou
+      tenter d'extraire le code source du Logiciel, sauf dans les
+      limites autorisées par la loi impérative applicable ;
+   d) retirer ou modifier les mentions de propriété, marques, droits
+      d'auteur ou logos figurant dans le Logiciel ;
+   e) utiliser le Logiciel pour développer un produit concurrent ;
+   f) utiliser le Logiciel à des fins illicites ou en violation des
+      réglementations locales en vigueur, notamment fiscales.
+
+
+3. PROPRIÉTÉ INTELLECTUELLE
+---------------------------
+
+Le Logiciel, sa documentation, son code source, ses interfaces, ses
+icônes, marques et logos sont la propriété exclusive d'Ahime ou de ses
+concédants. Aucun transfert de propriété intellectuelle n'est opéré par
+la présente licence.
+
+La marque « Su POS », le logo Su et le branding visuel associé sont
+des marques d'Ahime et ne peuvent être reproduits ou utilisés sans
+autorisation préalable écrite.
+
+
+4. CONFIDENTIALITÉ DES DONNÉES UTILISATEUR
+-------------------------------------------
+
+Les données saisies par l'utilisateur dans le Logiciel (catalogue,
+clients, ventes, fournisseurs, etc.) restent la propriété exclusive de
+l'utilisateur. Ahime n'utilise ces données que pour fournir le service
+contractuellement convenu et conformément à la politique de
+confidentialité disponible sur https://su.ahime.net/legal/confidentialite
+
+L'utilisateur peut exporter l'intégralité de ses données à tout moment
+au format CSV depuis l'interface du Logiciel.
+
+
+5. MISES À JOUR ET MAINTENANCE
+------------------------------
+
+Ahime publie régulièrement de nouvelles versions du Logiciel sous forme
+de releases dans ce dépôt. L'utilisateur est encouragé à installer la
+dernière version disponible pour bénéficier des corrections de sécurité,
+des nouvelles fonctionnalités et de la conformité réglementaire à jour
+(notamment vis-à-vis de la DGI Bénin).
+
+Ahime ne garantit pas la rétro-compatibilité indéfinie des anciennes
+versions. Une version peut être déclarée obsolète après un préavis
+raisonnable (en règle générale 90 jours).
+
+
+6. ABSENCE DE GARANTIE
+----------------------
+
+LE LOGICIEL EST FOURNI « TEL QUEL », SANS GARANTIE D'AUCUNE SORTE,
+EXPRESSE OU IMPLICITE, NOTAMMENT LES GARANTIES DE QUALITÉ MARCHANDE,
+D'ADÉQUATION À UN USAGE PARTICULIER, OU DE NON-CONTREFAÇON.
+
+Sans préjudice des garanties contractuelles spécifiquement consenties
+par Ahime dans le cadre de l'abonnement Su POS, Ahime ne garantit pas
+que le Logiciel sera exempt d'erreurs, fonctionnera sans interruption,
+ni qu'il sera adapté aux besoins spécifiques de l'utilisateur.
+
+
+7. LIMITATION DE RESPONSABILITÉ
+-------------------------------
+
+Dans les limites permises par la loi applicable, la responsabilité
+d'Ahime au titre du Logiciel se limite au montant effectivement payé
+par l'utilisateur au titre de son abonnement Su POS pour les 12 mois
+précédant la survenance du fait générateur.
+
+En aucun cas Ahime ne pourra être tenue responsable des dommages
+indirects, incidents, spéciaux ou consécutifs, y compris perte de
+chiffre d'affaires, perte de clientèle ou de données, même si Ahime a
+été informée de la possibilité de tels dommages.
+
+
+8. RÉSILIATION
+--------------
+
+Les droits accordés au titre de la présente licence prennent fin
+automatiquement en cas de :
+
+   a) résiliation, suspension ou non-renouvellement de l'abonnement
+      Su POS ;
+   b) violation par l'utilisateur de l'une quelconque des stipulations
+      de la présente licence.
+
+En cas de résiliation, l'utilisateur s'engage à désinstaller le
+Logiciel de tous ses appareils. Ses données restent accessibles en
+exportation pendant 30 jours suivant la résiliation.
+
+
+9. DROIT APPLICABLE ET JURIDICTION
+-----------------------------------
+
+La présente licence est régie par le droit béninois. Tout différend
+relatif à son exécution ou à son interprétation sera soumis à la
+compétence exclusive des tribunaux de Cotonou, Bénin, sauf disposition
+contraire d'ordre public applicable.
+
+
+10. CONTACT
+-----------
+
+Pour toute question relative à la présente licence :
+
+   Ahime SARL
+   Cotonou, Bénin
+   Email : legal@ahime.net
+   Web   : https://ahime.net
+
+Pour le support utilisateur :
+
+   Email : support@su.ahime.net
+   Web   : https://su.ahime.net
+
+
+--------------------------------------------------------------------------
+Version 1.0 — 28 mai 2026
+--------------------------------------------------------------------------
