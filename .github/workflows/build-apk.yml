@@ -78,11 +78,11 @@ jobs:
         working-directory: src/apps/pos
         run: |
           if [ "${{ inputs.build_type }}" = "release" ]; then
-            flutter build apk --release \
+            flutter build apk --release --no-tree-shake-icons \
               --dart-define=SU_API_BASE_URL=${{ inputs.api_base_url }} \
               --dart-define=SU_SIGNUP_URL=https://su.ahime.net/inscription
           else
-            flutter build apk --debug
+            flutter build apk --debug --no-tree-shake-icons
           fi
 
       - name: Renommer l'APK
