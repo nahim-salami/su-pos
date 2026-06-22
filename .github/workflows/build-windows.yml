@@ -21,6 +21,11 @@ on:
         required: true
         default: "main"
         type: string
+      api_base_url:
+        description: "URL backend (SU_API_BASE_URL)"
+        required: true
+        default: "https://api.su.ahime.net/api/v1"
+        type: string
       publish_release:
         description: "Publier l'exécutable en Release publique"
         required: true
@@ -91,7 +96,7 @@ jobs:
         run: |
           if [ "${{ inputs.build_type }}" = "release" ]; then
             flutter build windows --release --no-tree-shake-icons \
-              --dart-define=SU_API_BASE_URL=https://su-cloud.vercel.app/api/v1 \
+              --dart-define=SU_API_BASE_URL=${{ inputs.api_base_url }} \
               --dart-define=SU_SIGNUP_URL=https://su.ahime.net/inscription
           else
             flutter build windows --debug
