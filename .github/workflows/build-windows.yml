@@ -1,0 +1,180 @@
+name: Build Windows (Su POS)
+
+# Build dans le dépôt PUBLIC su-pos (runner windows-latest gratuit pour les
+# dépôts publics) ; le code source privé `su` est cloné de façon éphémère.
+# Seul l'exécutable (ZIP portable + installeur) est publié.
+#
+# Prérequis (une fois) : secret `SU_SOURCE_TOKEN` = PAT fine-grained
+# « Contents: Read » sur le dépôt privé `su`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Type de build"
+        required: true
+        default: "release"
+        type: choice
+        options: [debug, release]
+      source_ref:
+        description: "Branche/tag du dépôt privé su à builder"
+        required: true
+        default: "main"
+        type: string
+      publish_release:
+        description: "Publier l'exécutable en Release publique"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Windows ${{ inputs.build_type }}
+    runs-on: windows-latest
+    timeout-minutes: 60
+    steps:
+      - name: Cloner le code source privé (éphémère)
+        uses: actions/checkout@v4
+        with:
+          repository: nahim-salami/su
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SU_SOURCE_TOKEN }}
+          path: src
+
+      - name: Installer Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Activer Windows desktop
+        run: |
+          flutter config --enable-windows-desktop
+          flutter --version
+
+      - name: Dépendances Pub
+        working-directory: src/apps/pos
+        run: flutter pub get
+
+      - name: Générer le code (build_runner)
+        working-directory: src/apps/pos
+        shell: bash
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Icône Windows (.ico)
+        working-directory: src/apps/pos
+        shell: bash
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons-windows.yaml
+
+      - name: Configurer OpenSSL (sqlcipher_flutter_libs)
+        shell: pwsh
+        run: |
+          $cands = @(
+            "C:\Program Files\OpenSSL",
+            "C:\Program Files\OpenSSL-Win64",
+            "$env:VCPKG_INSTALLATION_ROOT\installed\x64-windows"
+          )
+          $root = $cands | Where-Object { $_ -and (Test-Path (Join-Path $_ 'lib')) } | Select-Object -First 1
+          if (-not $root) {
+            choco install openssl -y --no-progress
+            $root = "C:\Program Files\OpenSSL-Win64"
+          }
+          "OPENSSL_ROOT_DIR=$root" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "OPENSSL_ROOT_DIR = $root"
+
+      - name: Build Windows
+        working-directory: src/apps/pos
+        shell: bash
+        run: |
+          if [ "${{ inputs.build_type }}" = "release" ]; then
+            flutter build windows --release --no-tree-shake-icons \
+              --dart-define=SU_API_BASE_URL=https://su-cloud.vercel.app/api/v1 \
+              --dart-define=SU_SIGNUP_URL=https://su.ahime.net/inscription
+          else
+            flutter build windows --debug
+          fi
+
+      - name: Empaqueter (ZIP portable)
+        id: pack
+        working-directory: src/apps/pos
+        shell: bash
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          DATE=$(date -u +%Y%m%d-%H%M)
+          VER=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          case "${{ inputs.build_type }}" in
+            debug) BD="Debug" ;;
+            release) BD="Release" ;;
+          esac
+          NAME="su-pos-windows-${VER}-${{ inputs.build_type }}-${DATE}-${SHORT_SHA}"
+          DEST="$GITHUB_WORKSPACE/${NAME}.zip"
+          cd "build/windows/x64/runner/${BD}"
+          7z a -tzip "$DEST" ./* >/dev/null
+          ls -lh "$DEST"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "zip=$DEST" >> "$GITHUB_OUTPUT"
+          echo "tag=windows-${DATE}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Uploader l'artifact (ZIP)
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pack.outputs.name }}
+          path: ${{ steps.pack.outputs.zip }}
+          retention-days: 30
+          if-no-files-found: error
+
+      # --- Installeur Inno Setup (.exe) — best-effort ---------------------
+      - name: Installer Inno Setup
+        if: ${{ inputs.build_type == 'release' }}
+        continue-on-error: true
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
+
+      - name: Construire l'installeur Inno Setup
+        if: ${{ inputs.build_type == 'release' }}
+        id: installer
+        continue-on-error: true
+        working-directory: src/apps/pos
+        shell: bash
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          DATE=$(date -u +%Y%m%d-%H%M)
+          VERSION="${{ steps.pack.outputs.ver }}-${DATE}-${SHORT_SHA}"
+          NAME="su-pos-windows-installer-${DATE}-${SHORT_SHA}"
+          "/c/Program Files (x86)/Inno Setup 6/ISCC.exe" \
+            //DMyAppVersion="$VERSION" \
+            installer/windows/su-pos.iss
+          OUT=$(ls installer/windows/installer-output/*.exe | head -1)
+          DEST="$GITHUB_WORKSPACE/${NAME}.exe"
+          mv "$OUT" "$DEST"
+          ls -lh "$DEST"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "exe=$DEST" >> "$GITHUB_OUTPUT"
+
+      - name: Uploader l'installeur
+        if: ${{ inputs.build_type == 'release' && steps.installer.outputs.exe != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.installer.outputs.name }}
+          path: ${{ steps.installer.outputs.exe }}
+          retention-days: 30
+
+      - name: Publier la Release (exécutable public)
+        if: ${{ inputs.publish_release && inputs.build_type == 'release' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FILES="${{ steps.pack.outputs.zip }}"
+          if [ -n "${{ steps.installer.outputs.exe }}" ] && [ -f "${{ steps.installer.outputs.exe }}" ]; then
+            FILES="$FILES ${{ steps.installer.outputs.exe }}"
+          fi
+          gh release create "${{ steps.pack.outputs.tag }}" $FILES \
+            --repo "${{ github.repository }}" \
+            --title "Su POS Windows ${{ steps.pack.outputs.ver }}" \
+            --notes "Windows (release) — ZIP portable + installeur. Code source privé." \
+            --latest=false

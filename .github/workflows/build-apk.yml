@@ -1,0 +1,118 @@
+name: Build APK (Su POS)
+
+# Build exécuté dans le dépôt PUBLIC su-pos (Actions gratuites) mais le code
+# source reste dans le dépôt PRIVÉ nahim-salami/su : il est cloné de façon
+# éphémère sur le runner (jamais commité ici). Seul l'APK est publié.
+#
+# Prérequis (une fois) : créer un secret `SU_SOURCE_TOKEN` dans ce dépôt
+# (Settings → Secrets and variables → Actions) = PAT fine-grained avec
+# « Contents: Read » sur le dépôt privé `su`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: "Type de build APK"
+        required: true
+        default: "release"
+        type: choice
+        options: [debug, release]
+      source_ref:
+        description: "Branche/tag du dépôt privé su à builder"
+        required: true
+        default: "main"
+        type: string
+      publish_release:
+        description: "Publier l'APK en Release publique (sinon artifact seul)"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: APK ${{ inputs.build_type }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Cloner le code source privé (éphémère)
+        uses: actions/checkout@v4
+        with:
+          repository: nahim-salami/su
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SU_SOURCE_TOKEN }}
+          path: src
+
+      - name: Installer Java 17 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Installer Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Dépendances Pub
+        working-directory: src/apps/pos
+        run: flutter pub get
+
+      - name: Générer le code (build_runner)
+        working-directory: src/apps/pos
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Icônes Android
+        working-directory: src/apps/pos
+        run: dart run flutter_launcher_icons -f flutter_launcher_icons-android.yaml
+
+      - name: Build APK
+        working-directory: src/apps/pos
+        run: |
+          if [ "${{ inputs.build_type }}" = "release" ]; then
+            flutter build apk --release \
+              --dart-define=SU_API_BASE_URL=https://su-cloud.vercel.app/api/v1 \
+              --dart-define=SU_SIGNUP_URL=https://su.ahime.net/inscription
+          else
+            flutter build apk --debug
+          fi
+
+      - name: Renommer l'APK
+        id: rename
+        working-directory: src/apps/pos
+        run: |
+          SHORT_SHA=$(git rev-parse --short HEAD)
+          DATE=$(date -u +%Y%m%d-%H%M)
+          VER=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}')
+          SRC="build/app/outputs/flutter-apk/app-${{ inputs.build_type }}.apk"
+          NAME="su-pos-${VER}-${{ inputs.build_type }}-${DATE}-${SHORT_SHA}.apk"
+          DEST="$GITHUB_WORKSPACE/${NAME}"
+          mv "$SRC" "$DEST"
+          ls -lh "$DEST"
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "path=$DEST" >> "$GITHUB_OUTPUT"
+          echo "tag=apk-${DATE}-${SHORT_SHA}" >> "$GITHUB_OUTPUT"
+          echo "ver=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Uploader l'artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.rename.outputs.name }}
+          path: ${{ steps.rename.outputs.path }}
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Publier la Release (exécutable public)
+        if: ${{ inputs.publish_release && inputs.build_type == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.rename.outputs.tag }}" \
+            "${{ steps.rename.outputs.path }}" \
+            --repo "${{ github.repository }}" \
+            --title "Su POS Android ${{ steps.rename.outputs.ver }}" \
+            --notes "APK Android (release) — build automatique. Code source privé." \
+            --latest=false
