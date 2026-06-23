@@ -25,7 +25,7 @@ on:
       api_base_url:
         description: "URL backend (SU_API_BASE_URL)"
         required: true
-        default: "https://api.su.ahime.net/api/v1"
+        default: "https://su-cloud.vercel.app/api/v1"
         type: string
       publish_release:
         description: "Publier l'APK en Release publique (sinon artifact seul)"
