@@ -1,0 +1,137 @@
+name: Build Linux (Su POS)
+
+# Build desktop Linux de Su POS (entrée native main.dart). Le dépôt n'a pas de
+# dossier linux/ → on le génère via `flutter create --platforms=linux`.
+# Sortie : tar.gz + .deb attachés à la release stable. Dépendances natives
+# (GTK, sqlcipher/openssl, libsecret) installées sur le runner.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Branche/tag du dépôt privé su"
+        required: true
+        default: "main"
+        type: string
+      api_base_url:
+        description: "URL backend (SU_API_BASE_URL)"
+        required: true
+        default: "https://api.su.ahime.net/api/v1"
+        type: string
+      publish_release:
+        description: "Publier sur la release stable"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Linux release
+    runs-on: ubuntu-22.04
+    timeout-minutes: 45
+    steps:
+      - name: Cloner le code source privé (éphémère)
+        uses: actions/checkout@v4
+        with:
+          repository: nahim-salami/su
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SU_SOURCE_TOKEN }}
+          path: src
+
+      - name: Dépendances système (GTK, sqlcipher, openssl, secret)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config \
+            libgtk-3-dev liblzma-dev libstdc++-12-dev \
+            libsecret-1-dev libjsoncpp-dev \
+            libssl-dev libsqlite3-dev libsqlcipher-dev dpkg-dev
+
+      - name: Installer Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Activer Linux desktop
+        run: flutter config --enable-linux-desktop
+
+      - name: Générer le dossier linux/ (scaffolding)
+        working-directory: src/apps/pos
+        run: flutter create --platforms=linux .
+
+      - name: Dépendances Pub
+        working-directory: src/apps/pos
+        run: flutter pub get
+
+      - name: Générer le code (build_runner)
+        working-directory: src/apps/pos
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Linux
+        working-directory: src/apps/pos
+        run: |
+          flutter build linux --release \
+            --dart-define=SU_API_BASE_URL=${{ inputs.api_base_url }} \
+            --dart-define=SU_SIGNUP_URL=https://su.ahime.net/inscription \
+            --no-tree-shake-icons
+
+      - name: Empaqueter (tar.gz + .deb)
+        id: pack
+        working-directory: src/apps/pos
+        run: |
+          set -e
+          BUNDLE=build/linux/x64/release/bundle
+          VER=$(grep -m1 '^version:' pubspec.yaml | awk '{print $2}' | cut -d'+' -f1)
+          EXE=$(basename $(find "$BUNDLE" -maxdepth 1 -type f -executable | head -1))
+          echo "exe=$EXE version=$VER"
+          # tar.gz
+          tar -C "$BUNDLE" -czf "$GITHUB_WORKSPACE/su-pos-linux-x64.tar.gz" .
+          # .deb
+          PKG="$GITHUB_WORKSPACE/deb"
+          mkdir -p "$PKG/DEBIAN" "$PKG/opt/su-pos" "$PKG/usr/bin" "$PKG/usr/share/applications"
+          cp -r "$BUNDLE"/. "$PKG/opt/su-pos/"
+          ln -s "/opt/su-pos/$EXE" "$PKG/usr/bin/su-pos"
+          cat > "$PKG/DEBIAN/control" <<EOF
+          Package: su-pos
+          Version: ${VER}
+          Section: utils
+          Priority: optional
+          Architecture: amd64
+          Depends: libgtk-3-0, libsecret-1-0
+          Maintainer: Ahime <info@octepa.com>
+          Description: Su POS - point de vente DGI/e-MECeF
+           Caisse hors-ligne, conforme e-MECeF (DGI Benin).
+          EOF
+          cat > "$PKG/usr/share/applications/su-pos.desktop" <<EOF
+          [Desktop Entry]
+          Name=Su POS
+          Exec=/opt/su-pos/$EXE
+          Icon=su-pos
+          Type=Application
+          Categories=Office;
+          EOF
+          dpkg-deb --build --root-owner-group "$PKG" "$GITHUB_WORKSPACE/su-pos-linux.deb"
+          ls -lh "$GITHUB_WORKSPACE"/su-pos-linux*
+
+      - name: Uploader artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: su-pos-linux
+          path: |
+            su-pos-linux-x64.tar.gz
+            su-pos-linux.deb
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Attacher à la release stable
+        if: ${{ inputs.publish_release }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view stable --repo "${{ github.repository }}" >/dev/null 2>&1 \
+            || gh release create stable --repo "${{ github.repository }}" \
+                 --title "Su POS — Derniere version" --notes "Liens permanents." --latest
+          gh release upload stable su-pos-linux.deb su-pos-linux-x64.tar.gz --repo "${{ github.repository }}" --clobber
