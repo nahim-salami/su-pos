@@ -59,7 +59,7 @@ jobs:
           flutter build web --release \
             -t lib/main_web.dart \
             --dart-define=API_BASE_URL=${{ inputs.api_base_url }} \
-            --no-tree-shake-icons
+            --pwa-strategy=none \n            --no-tree-shake-icons
 
       - name: Zipper build/web
         working-directory: src/apps/pos
