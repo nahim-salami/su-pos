@@ -121,3 +121,17 @@ jobs:
             --title "Su POS Android ${{ steps.rename.outputs.ver }}" \
             --notes "APK Android (release) — build automatique. Code source privé." \
             --latest=false
+
+      - name: Mettre à jour la release "stable" (lien permanent du site)
+        if: ${{ inputs.publish_release && inputs.build_type == 'release' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "${{ steps.rename.outputs.path }}" su-pos-android.apk
+          gh release view stable --repo "${{ github.repository }}" >/dev/null 2>&1 \
+            || gh release create stable --repo "${{ github.repository }}" \
+                 --title "Su POS — Derniere version" \
+                 --notes "Liens permanents, mis a jour automatiquement a chaque build." \
+                 --latest
+          gh release upload stable su-pos-android.apk --repo "${{ github.repository }}" --clobber
+          gh release edit stable --repo "${{ github.repository }}" --latest
