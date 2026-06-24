@@ -1,0 +1,84 @@
+name: Build Web (Su POS)
+
+# Build de la version WEB de Su POS (point d'entrée lib/main_web.dart, online-only).
+# Tourne dans le dépôt PUBLIC su-pos ; clone le code privé su de façon éphémère.
+# Sortie : artifact `su-pos-web` (dossier build/web) + zip attaché à la release stable.
+# Déploiement vers app.su.ahime.net (projet Vercel su-679z) fait ensuite.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Branche/tag du dépôt privé su"
+        required: true
+        default: "main"
+        type: string
+      api_base_url:
+        description: "URL backend (API_BASE_URL)"
+        required: true
+        default: "https://api.su.ahime.net"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Web release
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Cloner le code source privé (éphémère)
+        uses: actions/checkout@v4
+        with:
+          repository: nahim-salami/su
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SU_SOURCE_TOKEN }}
+          path: src
+
+      - name: Installer Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Activer le support web
+        run: flutter config --enable-web
+
+      - name: Dépendances Pub
+        working-directory: src/apps/pos
+        run: flutter pub get
+
+      - name: Générer le code (build_runner)
+        working-directory: src/apps/pos
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Build Web (entrée main_web.dart)
+        working-directory: src/apps/pos
+        run: |
+          flutter build web --release \
+            -t lib/main_web.dart \
+            --dart-define=API_BASE_URL=${{ inputs.api_base_url }} \
+            --no-tree-shake-icons
+
+      - name: Zipper build/web
+        working-directory: src/apps/pos
+        run: cd build/web && zip -r "$GITHUB_WORKSPACE/su-pos-web.zip" .
+
+      - name: Uploader l'artifact (dossier build/web)
+        uses: actions/upload-artifact@v4
+        with:
+          name: su-pos-web
+          path: src/apps/pos/build/web
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Attacher le zip web à la release "stable"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view stable --repo "${{ github.repository }}" >/dev/null 2>&1 \
+            || gh release create stable --repo "${{ github.repository }}" \
+                 --title "Su POS — Derniere version" \
+                 --notes "Liens permanents, mis a jour automatiquement." --latest
+          gh release upload stable su-pos-web.zip --repo "${{ github.repository }}" --clobber
