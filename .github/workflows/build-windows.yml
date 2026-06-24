@@ -183,3 +183,18 @@ jobs:
             --title "Su POS Windows ${{ steps.pack.outputs.ver }}" \
             --notes "Windows (release) — ZIP portable + installeur. Code source privé." \
             --latest=false
+
+      - name: Mettre à jour la release "stable" (liens permanents du site)
+        if: ${{ inputs.publish_release && inputs.build_type == 'release' && steps.installer.outputs.exe != '' }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cp "${{ steps.installer.outputs.exe }}" su-pos-setup-windows.exe
+          gh release view stable --repo "${{ github.repository }}" >/dev/null 2>&1 \
+            || gh release create stable --repo "${{ github.repository }}" \
+                 --title "Su POS — Derniere version" \
+                 --notes "Liens permanents, mis a jour automatiquement a chaque build." \
+                 --latest
+          gh release upload stable su-pos-setup-windows.exe --repo "${{ github.repository }}" --clobber
+          gh release edit stable --repo "${{ github.repository }}" --latest
