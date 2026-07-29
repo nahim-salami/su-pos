@@ -102,6 +102,30 @@ jobs:
             flutter build windows --debug
           fi
 
+      # `flutter build windows` ne copie PAS le runtime Visual C++ : sur un PC
+      # sans « VC++ Redistributable », l'app plante au lancement avec
+      # « MSVCP140.dll introuvable ». Déploiement app-local (supporté par
+      # Microsoft) : on livre les 3 DLL CRT à côté de l'exe — couvre le ZIP
+      # portable ET l'installeur (même dossier source). Échec = build cassé
+      # (pas de continue-on-error : mieux vaut le voir tout de suite).
+      - name: Runtime Visual C++ app-local (MSVCP140 & co)
+        shell: pwsh
+        run: |
+          $bd = if ('${{ inputs.build_type }}' -eq 'release') { 'Release' } else { 'Debug' }
+          $dest = "src/apps/pos/build/windows/x64/runner/$bd"
+          $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+          $vs = & $vswhere -latest -products * -property installationPath
+          $crt = Get-ChildItem -Directory "$vs\VC\Redist\MSVC\*\x64\Microsoft.VC14*.CRT" |
+            Sort-Object FullName | Select-Object -Last 1
+          if (-not $crt) { throw "Dossier CRT VC introuvable sous $vs" }
+          foreach ($dll in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            Copy-Item (Join-Path $crt.FullName $dll) $dest -Force
+            Write-Host "copié : $dll  (depuis $($crt.FullName))"
+          }
+          foreach ($dll in 'msvcp140.dll','vcruntime140.dll','vcruntime140_1.dll') {
+            if (-not (Test-Path (Join-Path $dest $dll))) { throw "$dll manquant dans $dest" }
+          }
+
       - name: Empaqueter (ZIP portable)
         id: pack
         working-directory: src/apps/pos
@@ -138,6 +162,20 @@ jobs:
         continue-on-error: true
         shell: pwsh
         run: choco install innosetup -y --no-progress
+
+      # Filet de sécurité : vc_redist.x64.exe embarqué dans l'installeur
+      # (exécuté en silencieux si l'install est élevée ET que le runtime
+      # n'est pas déjà présent — voir su-pos.iss). Les DLL app-local
+      # ci-dessus restent la garantie principale (install sans admin).
+      - name: Télécharger vc_redist.x64.exe (pour l'installeur)
+        if: ${{ inputs.build_type == 'release' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          mkdir -p src/apps/pos/installer/windows/redist
+          curl -fSL -o src/apps/pos/installer/windows/redist/vc_redist.x64.exe \
+            https://aka.ms/vs/17/release/vc_redist.x64.exe
+          ls -lh src/apps/pos/installer/windows/redist/
 
       - name: Construire l'installeur Inno Setup
         if: ${{ inputs.build_type == 'release' }}
