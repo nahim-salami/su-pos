@@ -229,10 +229,28 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cp "${{ steps.installer.outputs.exe }}" su-pos-setup-windows.exe
+
+          # L'installeur est publie SOUS DEUX FORMES, pour deux canaux :
+          #
+          #  - `.exe` : cible de la mise a jour automatique. L'application le
+          #    telecharge elle-meme puis le lance (`Process.start`) — aucun
+          #    navigateur n'intervient, donc aucun blocage. NE PAS le retirer :
+          #    `cloud/src/config/app_release.ts` pointe dessus et l'OTA
+          #    casserait.
+          #
+          #  - `.zip` : ce que propose le site. Chrome et Edge bloquent le
+          #    telechargement direct d'un .exe non signe ; une archive passe.
+          #
+          # Cela ne supprime pas l'avertissement SmartScreen A L'EXECUTION,
+          # qui tient a l'absence de signature de code.
+          powershell -NoProfile -Command \
+            "Compress-Archive -Path su-pos-setup-windows.exe -DestinationPath su-pos-setup-windows.zip -Force"
+
           gh release view stable --repo "${{ github.repository }}" >/dev/null 2>&1 \
             || gh release create stable --repo "${{ github.repository }}" \
                  --title "Su POS — Derniere version" \
                  --notes "Liens permanents, mis a jour automatiquement a chaque build." \
                  --latest
-          gh release upload stable su-pos-setup-windows.exe --repo "${{ github.repository }}" --clobber
+          gh release upload stable su-pos-setup-windows.exe su-pos-setup-windows.zip \
+            --repo "${{ github.repository }}" --clobber
           gh release edit stable --repo "${{ github.repository }}" --latest
