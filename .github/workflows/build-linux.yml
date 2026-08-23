@@ -52,7 +52,7 @@ jobs:
       - name: Installer Flutter (stable)
         uses: subosito/flutter-action@v2
         with:
-          channel: stable
+          flutter-version: "3.35.7"
           cache: true
 
       - name: Activer Linux desktop
