@@ -1,0 +1,75 @@
+name: Tests (Su POS)
+
+# Analyse statique + tests unitaires de l'app Flutter.
+#
+# Même principe que les workflows de build : le code source reste dans le dépôt
+# PRIVÉ nahim-salami/su et n'est cloné ici que de façon éphémère via le secret
+# `SU_SOURCE_TOKEN`. Rien n'est publié — ce workflow ne produit aucun artefact
+# distribuable, il ne fait que vérifier que le code compile et que les tests
+# passent.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Branche/tag du dépôt privé su à tester"
+        required: true
+        default: "main"
+        type: string
+      test_path:
+        description: "Chemin de test (vide = toute la suite)"
+        required: false
+        default: ""
+        type: string
+      run_analyze:
+        description: "Lancer aussi flutter analyze"
+        required: true
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Analyse + tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Cloner le code source privé (éphémère)
+        uses: actions/checkout@v4
+        with:
+          repository: nahim-salami/su
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SU_SOURCE_TOKEN }}
+          path: src
+
+      - name: Installer Flutter (stable)
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: "3.35.7"
+          cache: true
+
+      - name: Dépendances Pub
+        working-directory: src/apps/pos
+        run: flutter pub get
+
+      # Les *.g.dart sont gitignorés : sans cette étape, l'analyse et les tests
+      # échouent sur des types introuvables plutôt que sur de vraies erreurs.
+      - name: Générer le code (build_runner)
+        working-directory: src/apps/pos
+        run: dart run build_runner build --delete-conflicting-outputs
+
+      - name: Analyse statique
+        if: ${{ inputs.run_analyze }}
+        working-directory: src/apps/pos
+        run: flutter analyze --no-pub
+
+      - name: Tests unitaires
+        working-directory: src/apps/pos
+        run: |
+          if [ -n "${{ inputs.test_path }}" ]; then
+            flutter test --no-pub --reporter expanded "${{ inputs.test_path }}"
+          else
+            flutter test --no-pub --reporter expanded
+          fi
