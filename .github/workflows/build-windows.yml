@@ -38,7 +38,12 @@ permissions:
 jobs:
   build:
     name: Windows ${{ inputs.build_type }}
-    runs-on: windows-latest
+    # windows-2022 (Visual Studio 2022) et non windows-latest : cette image est
+    # passee a Visual Studio 2026, que Flutter 3.35.7 ne reconnait pas. Il
+    # retombe alors sur le generateur « Visual Studio 16 2019 », absent de
+    # l'image, et CMake echoue. Meme choix que publish-release.yml du depot
+    # prive. A rouvrir le jour ou l'on montera Flutter.
+    runs-on: windows-2022
     timeout-minutes: 60
     steps:
       - name: Cloner le code source privé (éphémère)
