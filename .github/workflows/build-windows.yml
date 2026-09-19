@@ -138,11 +138,21 @@ jobs:
       # serveur ne recevaient jamais les correctifs du serveur local par la
       # mise a jour automatique. Structure bin/ + lib/ conservee : l'exe
       # charge ..\lib\sqlite3.dll.
+      # Dart autonome pour le serveur : Flutter 3.35.7 embarque Dart 3.9.2,
+      # or su_data exige drift 2.33+, donc Dart 3.10+. Place APRES le build
+      # Flutter : ce Dart passe en tete du PATH pour la suite du job.
+      - name: Installer Dart (serveur local)
+        if: ${{ inputs.build_type == 'release' }}
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
       - name: Serveur local (su_server.exe)
         if: ${{ inputs.build_type == 'release' }}
         shell: bash
         run: |
           set -e
+          dart --version
           cd src/packages/su_data
           dart pub get
           dart run build_runner build --delete-conflicting-outputs
