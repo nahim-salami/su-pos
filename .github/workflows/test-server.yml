@@ -1,0 +1,62 @@
+name: Tests serveur local (su_server)
+
+# Le serveur local (packages/su_server) n'avait aucune vérification en CI :
+# ses corrections partaient sans être compilées ni testées, faute de SDK Dart
+# sur le poste de développement. Ce workflow analyse et teste les paquets Dart
+# purs du dépôt privé, sans Flutter.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_ref:
+        description: "Branche/tag du dépôt privé su"
+        required: true
+        default: "main"
+        type: string
+      run_analyze:
+        description: "Lancer aussi l'analyse statique"
+        required: true
+        default: true
+        type: boolean
+
+jobs:
+  test:
+    name: Analyse + tests du serveur
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Cloner le code source privé (éphémère)
+        uses: actions/checkout@v4
+        with:
+          repository: nahim-salami/su
+          ref: ${{ inputs.source_ref }}
+          token: ${{ secrets.SU_SOURCE_TOKEN }}
+          path: src
+
+      # Dart seul : su_data, su_domain et su_server ne dépendent pas de
+      # Flutter. drift 2.33+ demande Dart 3.10 ou plus récent.
+      - name: Installer Dart
+        uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+
+      # Les fichiers drift générés (*.g.dart) sont hors dépôt : sans cette
+      # étape, su_server ne compile pas (types introuvables).
+      - name: Générer le code (su_data)
+        working-directory: src/packages/su_data
+        run: |
+          dart pub get
+          dart run build_runner build --delete-conflicting-outputs
+
+      - name: Dépendances (su_server)
+        working-directory: src/packages/su_server
+        run: dart pub get
+
+      - name: Analyse statique
+        if: ${{ inputs.run_analyze }}
+        working-directory: src/packages/su_server
+        run: dart analyze --fatal-warnings lib test
+
+      - name: Tests
+        working-directory: src/packages/su_server
+        run: dart test -r expanded
