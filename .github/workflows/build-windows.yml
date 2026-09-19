@@ -131,6 +131,30 @@ jobs:
             if (-not (Test-Path (Join-Path $dest $dll))) { throw "$dll manquant dans $dest" }
           }
 
+      # Module « Serveur Su » de l'installeur : le serveur local (su_server.exe
+      # + sqlite3.dll), qui porte la cle publique de licence. su-pos.iss ne
+      # propose ce module que si build/server-pack/bin/su_server.exe existe.
+      # Sans cette etape, l'installeur publie etait « app seule » : les postes
+      # serveur ne recevaient jamais les correctifs du serveur local par la
+      # mise a jour automatique. Structure bin/ + lib/ conservee : l'exe
+      # charge ..\lib\sqlite3.dll.
+      - name: Serveur local (su_server.exe)
+        if: ${{ inputs.build_type == 'release' }}
+        shell: bash
+        run: |
+          set -e
+          cd src/packages/su_data
+          dart pub get
+          dart run build_runner build --delete-conflicting-outputs
+          cd ../su_server
+          dart pub get
+          dart build cli -o "$RUNNER_TEMP/su_server-bundle"
+          PACK="$GITHUB_WORKSPACE/src/apps/pos/build/server-pack"
+          rm -rf "$PACK" && mkdir -p "$PACK"
+          cp -r "$RUNNER_TEMP/su_server-bundle/bundle/." "$PACK/"
+          test -f "$PACK/bin/su_server.exe"
+          find "$PACK" -type f | head -20
+
       - name: Empaqueter (ZIP portable)
         id: pack
         working-directory: src/apps/pos
